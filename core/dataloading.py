@@ -125,6 +125,20 @@ class Dataset(torch.utils.data.Dataset):
             mask = mask.float()[0].permute(2, 0, 1)
             return mask
 
+    def resize_with_pad(self, image, target_size, interpolation, fill):
+        """Preserve anatomy aspect ratio and pad to the generator resolution."""
+        target_h, target_w = target_size
+        source_w, source_h = image.size
+        scale = min(target_w / source_w, target_h / source_h)
+        new_w = max(1, int(round(source_w * scale)))
+        new_h = max(1, int(round(source_h * scale)))
+        image = F.resize(image, size=(new_h, new_w), interpolation=interpolation)
+        pad_left = (target_w - new_w) // 2
+        pad_right = target_w - new_w - pad_left
+        pad_top = (target_h - new_h) // 2
+        pad_bottom = target_h - new_h - pad_top
+        return F.pad(image, (pad_left, pad_top, pad_right, pad_bottom), fill=fill)
+
     def __getitem__(self, index):
         output = dict()
         idx = index % len(self.list_imgs)
@@ -132,14 +146,20 @@ class Dataset(torch.utils.data.Dataset):
 
         # --- image ---#
         img_pil = Image.open(os.path.join(self.root_images, self.list_imgs[idx])).convert("RGB")
-        img = F.to_tensor(F.resize(img_pil, size=target_size))
+        img_pil = self.resize_with_pad(
+            img_pil, target_size, TR.InterpolationMode.BILINEAR, fill=0
+        )
+        img = F.to_tensor(img_pil)
         img = (img - 0.5) * 2
         output["images"] = img
 
         # --- mask ---#
         if not self.no_masks:
             mask_pil = Image.open(os.path.join(self.root_masks, self.list_imgs[idx][:-4] + ".png"))
-            mask = F.to_tensor(F.resize(mask_pil, size=target_size, interpolation=Image.NEAREST))
+            mask_pil = self.resize_with_pad(
+                mask_pil, target_size, TR.InterpolationMode.NEAREST, fill=0
+            )
+            mask = F.to_tensor(mask_pil)
             mask = self.create_mask_channels(mask)  # mask should be N+1 channels
             output["masks"] = mask
             assert img.shape[1:] == mask.shape[1:], "Image and mask must have same dims %s" % (self.list_imgs[idx])

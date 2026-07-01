@@ -16,6 +16,8 @@ conditioned image synthesis.
   boundary consistency. The supplied target mask is the output annotation.
 - Anatomy-breaking layout augmentation (object move/copy/delete and large
   translations/crops) is disabled.
+- Input images and masks are resized with aspect-preserving padding rather than
+  anisotropic stretching.
 - Low-frequency anatomy and region-wise texture statistics losses are added.
 
 This is a minimum effective version. It does not claim to model population
@@ -64,6 +66,18 @@ The repository includes the current example pair under
 
 ```bash
 bash train_improved.sh
+```
+
+Background training with one line:
+
+```bash
+nohup bash train_improved.sh > train_stdout.log 2> train_stderr.log & echo $! > process_id.txt
+```
+
+Monitor it with:
+
+```bash
+tail -f run_logs/rendered_us_atg_osmis_v1/train.log
 ```
 
 The default run uses 32 validated pseudo-pairs, batch size 8, 150,000
