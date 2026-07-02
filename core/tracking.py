@@ -120,6 +120,11 @@ class image_saver():
 
         images = (fake["images"][-1] + 1) / 2
         torchvision.utils.save_image(images, os.path.join(self.folder_images, epoch+self.ext))
+        if "structures" in fake:
+            torchvision.utils.save_image(
+                fake["structures"],
+                os.path.join(self.folder_images, epoch + "_structure" + self.ext),
+            )
         if not self.no_masks:
             painted_masks = self.paint_mask(fake["masks"])
             torchvision.utils.save_image(painted_masks, os.path.join(self.folder_images, epoch+"_mask"+self.ext))

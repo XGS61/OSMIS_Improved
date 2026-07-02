@@ -15,7 +15,8 @@ def prepare_dataloading(opt):
                           "num_blocks_d":  dataset.recommended_config[2],
                           "num_blocks_d0": dataset.recommended_config[3],
                           "no_masks": dataset.no_masks,
-                          "num_mask_channels": dataset.num_mask_channels}
+                          "num_mask_channels": dataset.num_mask_channels,
+                          "num_structure_channels": dataset.num_structure_channels}
     if not recommended_config["no_masks"] and not opt.no_masks:
         print("Using the training regime *with* segmentation masks")
     else:
@@ -40,6 +41,7 @@ class Dataset(torch.utils.data.Dataset):
         # --- images --- #
         self.root_images = os.path.join(opt.dataroot, opt.dataset_name, "image")
         self.root_masks = os.path.join(opt.dataroot, opt.dataset_name, "mask")
+        self.root_structures = os.path.join(opt.dataroot, opt.dataset_name, "structure")
         self.list_imgs = self.get_frames_list(self.root_images)
         assert len(self.list_imgs) > 0, "Found no images"
         self.image_resolution, self.recommended_config = get_recommended_config(self.get_im_resolution(opt.max_size))
@@ -57,6 +59,15 @@ class Dataset(torch.utils.data.Dataset):
         else:
             self.no_masks = True
             self.num_mask_channels = None
+
+        if os.path.isdir(self.root_structures):
+            self.list_structures = self.get_frames_list(self.root_structures)
+            assert len(self.list_imgs) == len(self.list_structures), \
+                "Different number of images and structure guides"
+            self.num_structure_channels = 3
+        else:
+            self.list_structures = None
+            self.num_structure_channels = 0
 
         print("Created a dataset of size =", len(self.list_imgs), "with image resolution", self.image_resolution)
 
@@ -163,6 +174,15 @@ class Dataset(torch.utils.data.Dataset):
             mask = self.create_mask_channels(mask)  # mask should be N+1 channels
             output["masks"] = mask
             assert img.shape[1:] == mask.shape[1:], "Image and mask must have same dims %s" % (self.list_imgs[idx])
+
+        if self.list_structures is not None:
+            structure_pil = Image.open(
+                os.path.join(self.root_structures, self.list_structures[idx])
+            ).convert("RGB")
+            structure_pil = self.resize_with_pad(
+                structure_pil, target_size, TR.InterpolationMode.BILINEAR, fill=0
+            )
+            output["structures"] = F.to_tensor(structure_pil)
         return output
 
 

@@ -2,6 +2,7 @@ checkpoints/
 run_logs/
 imports/
 datasets/*_anatomy/
+datasets/*_full_guidance/
 **__pycache__/
 __pycache__/
 .idea/

@@ -4,14 +4,19 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT_DIR}"
 
-EXP_NAME="${1:-rendered_us_atg_osmis_full_v2}"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
+export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
+
+python -u verify_5090.py
+
+EXP_NAME="${1:-rendered_us_atg_osmis_full_v2_5090}"
 IMAGE_PATH="${IMAGE_PATH:-datasets/rendered_us_3d_1/image/00000.png}"
 MASK_PATH="${MASK_PATH:-datasets/rendered_us_3d_1/mask/00000.png}"
 DATASET_NAME="${DATASET_NAME:-rendered_us_3d_1_full_guidance}"
 NUM_VARIANTS="${NUM_VARIANTS:-64}"
 NUM_EPOCHS="${NUM_EPOCHS:-100000}"
-BATCH_SIZE="${BATCH_SIZE:-4}"
-NUM_WORKERS="${NUM_WORKERS:-4}"
+BATCH_SIZE="${BATCH_SIZE:-16}"
+NUM_WORKERS="${NUM_WORKERS:-8}"
 
 python -u prepare_anatomy_dataset.py \
   --image "${IMAGE_PATH}" \

@@ -58,7 +58,9 @@ def get_arguments():
     parser.add_argument('--lambda_boundary', type=float, default=2.0,
                         help='target-mask boundary consistency loss weight')
     parser.add_argument('--lambda_lowfreq', type=float, default=2.0,
-                        help='low-frequency anatomy reconstruction loss weight')
+                        help='deprecated v1 paired reconstruction loss weight')
+    parser.add_argument('--lambda_structure', type=float, default=4.0,
+                        help='multi-scale anatomy guide consistency loss weight')
     parser.add_argument('--lambda_texture', type=float, default=1.0,
                         help='region-wise texture statistics loss weight')
     parser.add_argument('--prob_FA_con', type=float, help='probability of content FA', default=0.4)
@@ -72,6 +74,10 @@ def get_arguments():
     parser.add_argument('--norm_D', help='which norm to use in discriminator (None|batch|instance)', default="none")
     parser.add_argument('--ch_G', type=float, help='channel multiplier for G blocks', default=32)
     parser.add_argument('--ch_D', type=float, help='channel multiplier for D blocks', default=32)
+    parser.add_argument('--style_dim', type=int, default=64,
+                        help='per-region SEAN style code dimension')
+    parser.add_argument('--sean_blocks', type=int, default=3,
+                        help='number of high-resolution generator blocks using SEAN')
     parser.add_argument('--num_blocks_d', type=int, help='Discriminator blocks number. 0 -> use recommended default', default=0)
     parser.add_argument('--num_blocks_d0', type=int, help='Num of D_low-level blocks. 0 -> use recommended default', default=0)
 

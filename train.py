@@ -28,9 +28,22 @@ for epoch, batch in enumerate(dataloader, start=opt.continue_epoch):
 
     # --- generator update --- #
     netG.zero_grad()
-    z = utils.sample_noise(opt.noise_dim, opt.batch_size).to(opt.device)
-    out_G = netG.generate(z, masks=batch.get("masks"), get_feat=not opt.no_DR)
-    losses["G"] = losses_module.guided_generator_losses(out_G, batch, opt)
+    current_batch = batch["masks"].shape[0]
+    style_order = torch.randperm(current_batch, device=opt.device)
+    style_images = batch["images"][-1][style_order]
+    style_masks = batch["masks"][style_order]
+    z = utils.sample_noise(opt.noise_dim, current_batch).to(opt.device)
+    out_G = netG.generate(
+        z,
+        masks=batch.get("masks"),
+        structures=batch.get("structures"),
+        style_images=style_images,
+        style_masks=style_masks,
+        get_feat=not opt.no_DR,
+    )
+    losses["G"] = losses_module.guided_generator_losses(
+        out_G, batch, opt, style_images, style_masks
+    )
     out_G = diff_augment(out_G)
     logits["G"] = netD.discriminate(out_G, for_real=False, epoch=epoch)
     losses["G"].update(losses_computer(logits["G"], out_G, real=True, forD=False))
@@ -46,9 +59,15 @@ for epoch, batch in enumerate(dataloader, start=opt.continue_epoch):
     loss = sum(losses["Dreal"].values())
     loss.backward(retain_graph=True)
 
-    z = utils.sample_noise(opt.noise_dim, opt.batch_size).to(opt.device)
+    z = utils.sample_noise(opt.noise_dim, current_batch).to(opt.device)
     with torch.no_grad():
-        out_G = netG.generate(z, masks=batch.get("masks"))  # fake
+        out_G = netG.generate(
+            z,
+            masks=batch.get("masks"),
+            structures=batch.get("structures"),
+            style_images=batch["images"][-1],
+            style_masks=batch.get("masks"),
+        )
     out_G = diff_augment(out_G)
     logits["Dfake"] = netD.discriminate(out_G, for_real=False, epoch=epoch)
     losses["Dfake"] = losses_computer(logits["Dfake"], out_G, real=False, forD=True)
@@ -66,10 +85,26 @@ for epoch, batch in enumerate(dataloader, start=opt.continue_epoch):
         timer(epoch)
         z = utils.sample_noise(opt.noise_dim, 8).to(opt.device)
         monitor_masks = batch["masks"][:1].repeat(8, 1, 1, 1)
+        monitor_structures = batch["structures"][:1].repeat(8, 1, 1, 1)
+        repeats = (8 + current_batch - 1) // current_batch
+        monitor_styles = batch["images"][-1].repeat(repeats, 1, 1, 1)[:8]
+        monitor_style_masks = batch["masks"].repeat(repeats, 1, 1, 1)[:8]
         fake = (
-            netEMA.generate(z, masks=monitor_masks)
+            netEMA.generate(
+                z,
+                masks=monitor_masks,
+                structures=monitor_structures,
+                style_images=monitor_styles,
+                style_masks=monitor_style_masks,
+            )
             if not opt.no_EMA
-            else netG.generate(z, masks=monitor_masks)
+            else netG.generate(
+                z,
+                masks=monitor_masks,
+                structures=monitor_structures,
+                style_images=monitor_styles,
+                style_masks=monitor_style_masks,
+            )
         )
         visualizer.save_batch(fake, epoch)
     if (epoch % opt.freq_save_loss == 0 or epoch == opt.num_epochs) and epoch > 0 :

@@ -5,4 +5,4 @@ NUM_EPOCHS=2 \
 BATCH_SIZE=2 \
 NUM_WORKERS=0 \
 NUM_VARIANTS=8 \
-bash train_improved.sh smoke_atg_osmis
+bash train_improved.sh smoke_atg_osmis_full_v2

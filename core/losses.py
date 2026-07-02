@@ -121,35 +121,78 @@ def _masked_stats(image, mask, eps=1e-6):
     return mean, torch.sqrt(variance + eps)
 
 
-def _texture_statistics_loss(fake, real, masks):
+def _texture_statistics_loss(fake, reference, fake_masks, reference_masks):
     total = fake.new_tensor(0.0)
-    for channel in range(masks.shape[1]):
-        region = masks[:, channel:channel + 1]
-        fake_mean, fake_std = _masked_stats(fake, region)
-        real_mean, real_std = _masked_stats(real, region)
-        total = total + F.l1_loss(fake_mean, real_mean) + F.l1_loss(fake_std, real_std)
+    for channel in range(fake_masks.shape[1]):
+        fake_region = fake_masks[:, channel:channel + 1]
+        reference_region = reference_masks[:, channel:channel + 1]
+        fake_mean, fake_std = _masked_stats(fake, fake_region)
+        ref_mean, ref_std = _masked_stats(reference, reference_region)
+        total = total + F.l1_loss(fake_mean, ref_mean) + F.l1_loss(fake_std, ref_std)
 
     fake_gray = fake.mean(dim=1, keepdim=True)
-    real_gray = real.mean(dim=1, keepdim=True)
+    ref_gray = reference.mean(dim=1, keepdim=True)
     fake_grad = torch.abs(fake_gray[:, :, :, 1:] - fake_gray[:, :, :, :-1])
-    real_grad = torch.abs(real_gray[:, :, :, 1:] - real_gray[:, :, :, :-1])
-    grad_mask = masks[:, 1:2, :, 1:] if masks.shape[1] > 1 else masks[:, :1, :, 1:]
-    fake_g_mean, fake_g_std = _masked_stats(fake_grad, grad_mask)
-    real_g_mean, real_g_std = _masked_stats(real_grad, grad_mask)
-    return total + F.l1_loss(fake_g_mean, real_g_mean) + F.l1_loss(fake_g_std, real_g_std)
+    ref_grad = torch.abs(ref_gray[:, :, :, 1:] - ref_gray[:, :, :, :-1])
+    fake_grad_mask = (
+        fake_masks[:, 1:2, :, 1:] if fake_masks.shape[1] > 1
+        else fake_masks[:, :1, :, 1:]
+    )
+    ref_grad_mask = (
+        reference_masks[:, 1:2, :, 1:] if reference_masks.shape[1] > 1
+        else reference_masks[:, :1, :, 1:]
+    )
+    fake_g_mean, fake_g_std = _masked_stats(fake_grad, fake_grad_mask)
+    ref_g_mean, ref_g_std = _masked_stats(ref_grad, ref_grad_mask)
+    return total + F.l1_loss(fake_g_mean, ref_g_mean) + F.l1_loss(fake_g_std, ref_g_std)
 
 
-def guided_generator_losses(fake, real, opt):
-    """Losses that make the external target mask control anatomy."""
+def _gradient_magnitude(image):
+    dx = image[:, :, :, 1:] - image[:, :, :, :-1]
+    dy = image[:, :, 1:, :] - image[:, :, :-1, :]
+    dx = F.pad(dx, (0, 1, 0, 0))
+    dy = F.pad(dy, (0, 0, 0, 1))
+    return torch.sqrt(dx.square() + dy.square() + 1e-8)
+
+
+def _normalize_map(tensor):
+    scale = tensor.detach().amax(dim=(2, 3), keepdim=True).clamp_min(1e-6)
+    return torch.clamp(tensor / scale, 0.0, 1.0)
+
+
+def _structure_consistency_loss(fake_image, target_structure):
+    rgb = (fake_image + 1.0) / 2.0
+    luminance = (
+        rgb[:, 0:1] * 0.2126 + rgb[:, 1:2] * 0.7152 + rgb[:, 2:3] * 0.0722
+    )
+    low = F.avg_pool2d(luminance, kernel_size=15, stride=1, padding=7)
+    fine = _normalize_map(_gradient_magnitude(luminance))
+    coarse_luminance = F.avg_pool2d(luminance, kernel_size=7, stride=1, padding=3)
+    coarse = _normalize_map(_gradient_magnitude(coarse_luminance))
+    predicted = torch.cat((low, coarse, fine), dim=1)
+    return F.smooth_l1_loss(predicted, target_structure)
+
+
+def guided_generator_losses(
+    fake, real, opt, style_reference=None, style_masks=None
+):
+    """Structure, segmentation, and reference-style consistency."""
     prediction = fake["pred_masks"]
     target = fake["masks"]
     fake_image = fake["images"][-1]
-    real_image = real["images"][-1]
+    style_reference = real["images"][-1] if style_reference is None else style_reference
+    style_masks = target if style_masks is None else style_masks
+    structure = fake.get("structures")
     return {
         "seg": _soft_dice(prediction, target) * opt.lambda_seg,
         "boundary": _boundary_loss(prediction, target) * opt.lambda_boundary,
-        "lowfreq": _low_frequency_loss(fake_image, real_image) * opt.lambda_lowfreq,
-        "texture": _texture_statistics_loss(fake_image, real_image, target) * opt.lambda_texture,
+        "structure": (
+            _structure_consistency_loss(fake_image, structure) * opt.lambda_structure
+            if structure is not None else fake_image.new_tensor(0.0)
+        ),
+        "texture": _texture_statistics_loss(
+            fake_image, style_reference, target, style_masks
+        ) * opt.lambda_texture,
     }
 
 

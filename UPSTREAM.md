@@ -8,6 +8,7 @@
 The upstream `LICENSE`, `3rd-party-licenses.txt`, `README.md`, and
 `environment.yml` are preserved in this directory.
 
-This derived repository adds anatomy-constrained pseudo-pairs, mask-conditioned
-SPADE generator blocks, conditional discrimination, and structure/texture
-consistency losses. Details are documented in `README.md`.
+This derived repository adds hierarchical anatomy-constrained pseudo-pairs,
+mask-and-structure SPADE conditioning, region-reference SEAN modulation,
+conditional discrimination, and structure/texture consistency losses.
+Details are documented in `README.md`.
