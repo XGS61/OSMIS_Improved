@@ -18,7 +18,10 @@ class visualizer():
             folder_images = os.path.join(opt.checkpoints_dir, opt.exp_name, "images")
         else:
             folder_images = os.path.join(opt.checkpoints_dir, opt.exp_name, "evaluation")
-        self.losses_saver = losses_saver(folder_losses, opt.continue_epoch)
+        # Inference only needs image saving. Imported checkpoints may not ship
+        # training CSV logs, so never attempt to resume loss tracking in test.
+        loss_resume_epoch = opt.continue_epoch if opt.phase == "train" else 0
+        self.losses_saver = losses_saver(folder_losses, loss_resume_epoch)
         self.image_saver = image_saver(folder_images, opt.no_masks, opt.phase, opt.continue_epoch)
         self.network_saver = network_saver(folder_networks, opt.no_EMA)
 
