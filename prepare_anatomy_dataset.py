@@ -272,6 +272,12 @@ def main():
     parser.add_argument("--regional-displacement-frac", type=float, default=0.022)
     parser.add_argument("--max-attempts", type=int, default=10000)
     parser.add_argument("--min-jacobian", type=float, default=0.35)
+    parser.add_argument(
+        "--crop-top",
+        type=int,
+        default=0,
+        help="deterministically crop this many top rows from both image and mask",
+    )
     parser.add_argument("--sp", type=parse_point)
     parser.add_argument("--pvm", type=parse_point)
     parser.add_argument("--overwrite", action="store_true")
@@ -281,6 +287,13 @@ def main():
     mask = np.asarray(Image.open(args.mask).convert("L")) >= 128
     if image.shape[:2] != mask.shape:
         raise ValueError(f"Image/mask mismatch: {image.shape[:2]} vs {mask.shape}")
+    if args.crop_top < 0 or args.crop_top >= image.shape[0]:
+        raise ValueError(
+            f"--crop-top must be in [0, {image.shape[0] - 1}], got {args.crop_top}"
+        )
+    if args.crop_top:
+        image = image[args.crop_top:, ...]
+        mask = mask[args.crop_top:, ...]
 
     output = Path(args.output)
     if output.exists() and any(output.rglob("*.png")) and not args.overwrite:
@@ -378,6 +391,7 @@ def main():
         "version": 2,
         "source_image": str(Path(args.image).resolve()),
         "source_mask": str(Path(args.mask).resolve()),
+        "source_crop_top": args.crop_top,
         "segmentation_target": "levator-hiatus interior on the C-plane",
         "diversity": {
             "global": "smooth bounded whole-field deformation",
