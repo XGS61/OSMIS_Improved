@@ -95,8 +95,10 @@ compute capability, and an actual GPU matrix operation before training starts.
 
 ## RTX 5090 one-command training
 
-The current example image and mask are included in
-`datasets/rendered_us_3d_1/`.
+The current RTX 5090 default pair is included in
+`datasets/rendered_us_test2_source/`. The script synchronously removes the
+top 20 rows from the image and mask to exclude the acquisition marker, then
+uses conservative 2.8% global and 1.2% regional deformation amplitudes.
 
 ```bash
 bash train_improved_5090.sh

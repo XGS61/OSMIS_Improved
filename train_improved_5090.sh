@@ -9,10 +9,13 @@ export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-0}"
 
 python -u verify_5090.py
 
-EXP_NAME="${1:-rendered_us_atg_osmis_full_v2_5090}"
-IMAGE_PATH="${IMAGE_PATH:-datasets/rendered_us_3d_1/image/00000.png}"
-MASK_PATH="${MASK_PATH:-datasets/rendered_us_3d_1/mask/00000.png}"
-DATASET_NAME="${DATASET_NAME:-rendered_us_3d_1_full_guidance}"
+EXP_NAME="${1:-rendered_us_test2_full_v2_5090}"
+IMAGE_PATH="${IMAGE_PATH:-datasets/rendered_us_test2_source/image/00000.jpg}"
+MASK_PATH="${MASK_PATH:-datasets/rendered_us_test2_source/mask/00000.png}"
+DATASET_NAME="${DATASET_NAME:-rendered_us_test2_full_guidance}"
+SOURCE_CROP_TOP="${SOURCE_CROP_TOP:-20}"
+GLOBAL_DISPLACEMENT_FRAC="${GLOBAL_DISPLACEMENT_FRAC:-0.028}"
+REGIONAL_DISPLACEMENT_FRAC="${REGIONAL_DISPLACEMENT_FRAC:-0.012}"
 NUM_VARIANTS="${NUM_VARIANTS:-64}"
 NUM_EPOCHS="${NUM_EPOCHS:-100000}"
 BATCH_SIZE="${BATCH_SIZE:-16}"
@@ -23,6 +26,9 @@ python -u prepare_anatomy_dataset.py \
   --mask "${MASK_PATH}" \
   --output "datasets/${DATASET_NAME}" \
   --num-variants "${NUM_VARIANTS}" \
+  --crop-top "${SOURCE_CROP_TOP}" \
+  --global-displacement-frac "${GLOBAL_DISPLACEMENT_FRAC}" \
+  --regional-displacement-frac "${REGIONAL_DISPLACEMENT_FRAC}" \
   --overwrite
 
 python -u validate_guidance_dataset.py --dataset "datasets/${DATASET_NAME}"
